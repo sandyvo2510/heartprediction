@@ -1,0 +1,524 @@
+---
+title: "Sandy Vo - Case study assignment 2"
+author: "Sandy Vo"
+date: "7/22/2022"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+df <- read.csv("C:/Users/tv/Downloads/heart-disease.csv")
+head(df)
+dim(df)
+```
+
+```{r}
+colnames(df)
+names(df)[names(df) == "ï..age"] <- "age"
+```
+
+```{r}
+df[duplicated(df),]
+df <- df[!duplicated(df),]
+dim(df)
+
+```
+
+```{r}
+barplot(table(df$target))
+
+```
+
+
+```{r}
+apply(df,2,is.numeric)
+
+```
+
+```{r}
+lapply(apply(df,2, unique),length)
+
+```
+
+```{r}
+table(df$ca)
+```
+
+```{r}
+
+df[df$ca == 4,]$ca = NA
+unique(df$ca)
+```
+```{r}
+table(df$thal)
+df[df$thal == 0,]$thal = NA
+unique(df$thal)
+```
+
+```{r}
+apply(apply(df,2,is.na),2,sum)
+```
+
+
+```{r}
+df$ca[is.na(df$ca)] <- median(df$ca, na.rm = TRUE)
+df$thal[is.na(df$thal)] <- median(df$thal, na.rm = TRUE)
+```
+
+
+
+```{r}
+library(car)
+
+str(df)
+df$sex <- recode(df$sex, "0 = 'Female'; 1 = 'Male'")
+df$cp <- recode(df$cp, "0 = 'typical_angina'; 1 = 'atypical_angina'; 2 = 'non-anginal pain'; 3 = 'asymtomatic'")
+df$fbs <- recode(df$fbs, "0 = 'No'; 1 = 'Yes'")
+df$restecg <- recode(df$restecg, "0 = 'Normal'; 1 = 'Abnormal'; 2 = 'Ventricular_hypertrophy'")
+df$exang <- recode(df$exang, "0 = 'No'; 1 = 'Yes'")
+df$slope <- recode(df$slope, "0 = 'upsloping'; 1 = 'flat'; 2 = 'downsloping'")
+df$thal <- recode(df$thal, "1 = 'normal'; 2 = 'fixed_defect'; 3 = 'reversable_defect'")
+df$target <- recode(df$target, "0 = 'No'; 1 = 'Yes'")
+cols <- c("sex","cp","fbs", "restecg", "exang", "slope", "ca", "thal", "target")
+df[cols] <- lapply(df[cols], factor)
+
+str(df)
+```
+
+```{r}
+library(reshape)
+meltData <- melt(df)
+library(ggplot2)
+library(ggthemes)
+p <- ggplot(meltData, aes(variable, value)) 
+p + geom_boxplot() + facet_wrap(~variable, scale="free") + ggtitle("Numerical variables") +  theme(plot.title = element_text(hjust = 0.5)) + theme_wsj()
+```
+
+```{r}
+continous_features = c('trestbps','age','chol','thalach','oldpeak') 
+outliers <- function(df_out, group, drop){
+    for (each_feature in colnames(df_out[,group])){
+        feature_data = df_out[[each_feature]]
+       
+        Q = quantile(feature_data, probs = c(0.25, 0.75))
+        
+        IQR = Q[2] - Q[1]
+        
+        outlier_step = IQR*1.5 
+        outlier = which(feature_data < (Q[1] - outlier_step) | feature_data > (Q[2] + outlier_step))
+        if (drop == FALSE){
+        print(sprintf("For the feature %s, No of Outliers is %.0f",each_feature, length(outlier)))}
+        else{
+          if (length(outlier) == 0){next}
+          else{df_out <- df_out[-outlier,]
+          }
+          }
+        } 
+  return(df_out)
+    }
+
+df_output <- outliers(df, continous_features ,drop = TRUE)
+
+
+```
+
+
+
+
+```{r}
+df <- df_output
+dim(df)
+
+ggplot(df, aes(x = target, fill = target)) +
+  geom_bar() +
+  geom_text(aes(label = ..count..), stat = "count", vjust = 1.5, colour = "white") +
+  ggtitle("Heart Disease Classes") + theme(plot.title = element_text(hjust = 0.5)) + 
+  xlab("Sufferring of Heart disease") + ylab("Number of individuals") + theme_economist() + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+  
+```
+
+We have 158 examples where someone has heart disease based on their health parameters and 125 examples where someone doesn't have heart disease. So that's a quite balanced classification problem.
+
+```{r}
+pairs(df[,continous_features], col= hcl.colors(2, "Temps")[df$target])
+```
+
+```{r}
+library(GGally)
+
+ggpairs(df, columns = continous_features, aes(color = target, alpha = 0.5),
+        upper = list(continuous = wrap("cor", size = 2.5)))
+
+
+```
+
+- oldpeak having a linear separation relation between disease and non-disease.
+- thalach having a mild separation relation between disease and non-disease.
+- Other features don’t form any clear separation
+
+```{r}
+library(dplyr)
+t1 <- df %>%                       
+  group_by(sex,target) %>% 
+  dplyr::summarize(count = n())
+  
+
+ggplot(t1, aes(sex, count, fill = target)) + 
+  geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9)) +
+  theme_bw() + 
+xlab("Sex") + ylab("Frequency") + ggtitle("Sex Distribution according to Heart disease status") + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+ 
+```
+
+
+```{r}
+
+t2 <- df %>%                       
+  group_by(cp,target) %>% 
+  dplyr::summarize(count = n())
+  
+
+ggplot(data = t2, aes(cp, count, fill = target)) + 
+    geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9))  + xlab("Chest pain type") + ylab("Frequency") + ggtitle("Chest Pain Distribution according to Target") + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.text.x = element_text(angle = 45, hjust=1))
+ 
+```
+
+
+```{r}
+t3 <- df %>%                       
+  group_by(fbs,target) %>% 
+  dplyr::summarize(count = n())
+  
+
+ggplot(data = t3, aes(fbs, count, fill = target)) + 
+    geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9)) + xlab("Fasting blood sugar") + ylab("Frequency") + ggtitle("Fasting blood sugar \n distribution according to Heart disease") + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+
+```{r}
+t4 <- df %>%                       
+  group_by(slope,target) %>% summarise(count = n())
+  
+
+ggplot(data = t4, aes(slope, count, fill = target)) + 
+    geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9)) + xlab("Slope") + ylab("Frequency") + ggtitle("Slope of the peak exercise ST segment \n distribution according to Heart disease") + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+```{r}
+t5 <- df %>%                       
+  group_by(exang,target) %>% 
+  dplyr::summarize(count = n())
+  
+
+ggplot(data = t5, aes(exang, count, fill = target)) + 
+    geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9)) + xlab("Exercise induced angina") + ylab("Frequency") + ggtitle("Exercise induced angina \n distribution according to Heart disease") + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+```{r}
+t6 <- df %>%                       
+  group_by(restecg,target) %>% 
+  dplyr::summarize(count = n())
+  
+
+ggplot(data = t6, aes(restecg, count, fill = target)) + 
+    geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9)) + xlab("Resting electrocardiographic results") + ylab("Frequency") + ggtitle("Resting electrocardiographic results \n distribution according to Heart disease") + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+t7 <- df %>%                       
+  group_by(ca,target) %>% 
+  dplyr::summarize(count = n())
+  
+
+ggplot(data = t7, aes(ca, count, fill = target)) + 
+    geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9)) + xlab("Number of major vessels") + ylab("Frequency") + ggtitle("Number of major vessels \n distribution according to Heart disease") + labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+```{r}
+t8 <- df %>%                       
+  group_by(thal,target) %>% 
+  dplyr::summarize(count = n())
+  
+
+ggplot(data = t8, aes(thal, count, fill = target)) + 
+    geom_col(position = "dodge") +
+  geom_text(aes(label = count),
+    colour = "white", size = 3,
+    vjust = 1.5, position = position_dodge(.9)) + xlab("Thalium stress result") + ylab("Frequency") + ggtitle("Thalium stress result \n distribution according to Heart disease") +  labs(fill = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+library(Hmisc)
+hist.data.frame(df[,continous_features])
+
+```
+
+
+```{r}
+library(corrplot)
+library(RColorBrewer)
+M <-cor(df[,continous_features])
+corrplot(M, type="upper", order="hclust",
+         col=brewer.pal(n=8, name="RdYlBu"), tl.srt = 45)
+
+```
+
+```{r}
+ggpairs(df[,c('trestbps','age','chol','thalach','oldpeak', 'target')], aes(color = target)) + theme_bw()
+
+```
+
+
+```{r}
+df %>%group_by(sex, target) %>%
+summarise(cnt = n()) %>%
+mutate(freq = (cnt / sum(cnt)))
+
+```
+
+
+```{r}
+df %>%group_by(cp, target) %>%
+summarise(count = n()) %>%
+mutate(percent = (count / sum(count)))
+
+```
+
+```{r}
+df %>%group_by(fbs, target) %>%
+summarise(count = n()) %>%
+mutate(percent = (count / sum(count)))
+
+```
+
+```{r}
+
+df %>%group_by(slope, target) %>%
+summarise(count = n()) %>%
+mutate(percent = (count / sum(count)))
+
+```
+
+```{r}
+
+df %>%group_by(restecg, target) %>%
+summarise(count = n()) %>%
+mutate(percent = (count / sum(count)))
+
+```
+
+```{r}
+
+df %>%group_by(ca, target) %>%
+summarise(count = n()) %>%
+mutate(percent = (count / sum(count)))
+
+```
+
+```{r}
+
+df %>%group_by(thal, target) %>%
+summarise(count = n()) %>%
+mutate(percent = (count / sum(count)))
+
+```
+```{r}
+ggplot(data = df,aes(x = age, y = thalach, color = target)) + geom_point(alpha = 0.6) + xlab("Age") + ylab("Maximum heart rate") + ggtitle("Heart disease in function of Age and Maximum heart rate") + labs(color = "Heart disease") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+df_cor <- data.frame(lapply(df,as.integer))
+cor(df_cor)
+
+library(corrplot)
+corrplot(cor(df_cor))
+
+```
+
+```{r}
+ggplot(df, aes(x=ca, y=age)) +  geom_boxplot(fill='green')
+
+
+```
+
+
+```{r}
+ggplot(df, aes(sex, ..count..)) + geom_bar(aes(fill = thal), position = "dodge")
+
+
+```
+
+
+```{r}
+library(tidyverse)
+library(broom)
+theme_set(theme_classic())
+```
+
+
+```{r}
+model <- glm(target ~., data = df, 
+               family = binomial)
+probabilities <- predict(model, type = "response")
+predicted <- ifelse(probabilities > 0.5, "Yes", "No")
+
+mydata <- df %>% select_if(is.numeric) %>%
+  mutate(logit = log(probabilities/(1-probabilities))) %>%
+  gather(key = "predictors", value = "predictor.value", -logit)
+
+```
+
+
+```{r}
+ggplot(mydata, aes(logit, predictor.value))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw() + 
+  facet_wrap(~predictors, scales = "free_y")
+
+
+```
+
+
+```{r}
+model.data <- augment(model) %>% 
+  mutate(index = 1:n()) 
+
+ggplot(model.data, aes(index, .std.resid)) + 
+  geom_point(aes(color = target), alpha = .5) +
+  theme_bw() + labs(color = "Heart disease")
+
+```
+
+```{r}
+library(moments)
+apply(df[,continous_features],2,skewness)
+
+```
+
+```{r}
+skew_correct <- function(df){
+  for (col in names(df)){
+    if (skewness(df[,col]) > 0){
+      df[,col] <- log10(df[,col])
+    }else{
+      df[,col] <- log10(max(df[,col]+1) - df[,col])}
+  } 
+  return(df)}
+
+```
+
+
+
+```{r}
+model.data %>% 
+  filter(abs(.std.resid) > 3)
+
+
+```
+
+```{r}
+car::vif(model)
+
+
+```
+
+
+
+```{r}
+set.seed(1234)
+train <- sample(1:nrow(df), size = nrow(df)*0.75)
+train.set <- df[train,]
+test.set <- df[-train,]
+```
+
+```{r}
+x <- model.matrix(target ~ ., train.set)[,-1]
+y <- train.set$target
+lambda <- 10^seq(10,-2,length = 100)
+```
+
+```{r}
+library(glmnet)
+
+```
+
+
+```{r}
+set.seed(42)
+cv.mod <- cv.glmnet(x = x, y = y, family = "binomial", standardize = T, alpha = 1, lambda = lambda, type.measure = "class")
+lambda.min <- cv.mod$lambda.min
+lambda.min
+```
+
+```{r}
+plot(cv.mod)
+```
+
+```{r}
+coef(cv.mod, cv.mod$lambda.1se)
+
+```
+
+```{r}
+lasso.model <- glmnet(x, y, alpha = 1, family = "binomial",
+                      lambda = cv.mod$lambda.min)
+```
+
+
+```{r}
+x.test <- model.matrix(target ~ ., test.set)[,-1]
+
+probabilities <- lasso.model %>% predict(newx = x.test)
+predicted.classes <- ifelse(probabilities > 0.5, "Yes", "No")
+```
+
+```{r}
+observed.classes <- test.set$target
+mean(predicted.classes == observed.classes)
+```
+```{r}
+lasso.model.se <- glmnet(x, y, alpha = 1, family = "binomial", lambda = cv.mod$lambda.1se)
+probabilities.se <- lasso.model.se %>% predict(newx = x.test)
+predicted.classes.se <- ifelse(probabilities > 0.5, "Yes", "No")
+observed.classes <- test.set$target
+mean(predicted.classes.se == observed.classes)
+
+```
