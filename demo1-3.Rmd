@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-df <- read.csv("C:/Users/tv/Desktop/dfex.csv")
+df <- read.csv("heart-disease-edited.csv")
 ```
 
 ```{r}
