@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r}
-df <- read.csv("C:/Users/tv/Downloads/heart-disease.csv")
+df <- read.csv("heart-disease.csv")
 head(df)
 dim(df)
 ```
