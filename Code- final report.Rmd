@@ -1,0 +1,168 @@
+---
+title: "Case study 3"
+author: "Sandy Vo"
+date: "8/7/2022"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+df <- read.csv("C:/Users/tv/Desktop/dfex.csv")
+```
+
+```{r}
+cols <- c("sex","cp","fbs", "restecg", "exang", "slope", "ca", "thal", "target")
+df[cols] <- lapply(df[cols], factor)
+
+```
+
+```{r}
+set.seed(123)
+train <- sample(1:nrow(df),size = round(nrow(df)*0.8))
+train.set <- df[train,]
+test.set <- df[-train,]
+```
+
+```{r}
+logit.mod <- glm( target ~., data = train.set, family = binomial)
+summary(logit.mod)
+```
+
+```{r}
+logit.pred <- predict(logit.mod, test.set, type = "response")
+logit.class <- ifelse(logit.pred > 0.5, "Yes", "No")
+table(Predicted = logit.class, Actual = test.set$target)
+
+mean(test.set$target == logit.class)
+```
+
+
+
+
+```{r} 
+# run lasso with 100 lambda
+x <- model.matrix(target ~ ., train.set)[,-1]
+y <- train.set$target
+lambda <- 10^seq(10,-2,length = 100)
+```
+
+```{r}
+library(glmnet)
+
+```
+
+
+```{r}
+set.seed(42)
+cv.lasso <- cv.glmnet(x = x, y = y, family = "binomial", standardize = T, alpha = 1, lambda = lambda, type.measure = "class")
+lambda.min <- cv.lasso$lambda.min
+lambda.min
+```
+
+```{r}
+plot(cv.lasso)
+```
+
+
+```{r} 
+# run lasso with the best lambda
+lasso.model <- glmnet(x, y, alpha = 1, family = "binomial",
+                      lambda = lambda.min)
+coef(lasso.model)
+
+```
+
+
+```{r}
+x.test <- model.matrix(target ~ ., test.set)[,-1]
+
+lasso.pred <- predict(lasso.model, x.test, type = "response")
+lasso.class <- ifelse(lasso.pred > 0.5, "Yes", "No")
+```
+
+```{r}
+observed.classes <- test.set$target
+table(Predicted = lasso.class, Actual = test.set$target)
+mean(lasso.class == observed.classes)
+```
+
+```{r}
+# plot ROC
+library (ROCR)
+rocplot =function (pred , truth , ...){
+  predob = prediction (pred , truth)
+  perf = performance(predob , "tpr", "fpr")
+  plot(perf ,...)}
+```
+
+```{r}
+par(mfrow = c(1,2))
+lasso.fitted <- predict(lasso.model, x, type = "response")
+
+# ROC on training set
+rocplot(logit.mod$fitted.values, train.set$target, main = "Training data")
+rocplot(lasso.fitted, train.set$target, add = T, col = "red")
+
+#ROC on test set
+rocplot(logit.pred, test.set$target, main = "Testing data")
+rocplot(lasso.pred, test.set$target, add = T, col = "red")
+
+legend(0.4, 0.4, legend=c("Lasso", "Logistic"),
+       col=c("red", "black"), lty=1, cex=0.8)
+```
+
+```{r}
+#find the best cut-off
+opt.cut = function(perf, pred){
+    cut.ind = mapply(FUN=function(x, y, p){
+        d = (x - 0)^2 + (y-1)^2
+        ind = which(d == min(d))
+        c(sensitivity = y[[ind]], specificity = 1-x[[ind]], 
+            cutoff = p[[ind]])
+    }, perf@x.values, perf@y.values, pred@cutoffs)
+}
+
+```
+
+
+```{r}
+#best cut-off for logistic model
+pred1 <- prediction (logit.pred , test.set$target)
+roc.perf1 <- performance(pred1, measure = "tpr", x.measure = "fpr")
+print(opt.cut(roc.perf1, pred1))
+```
+
+```{r}
+# best cut-off for lasso model
+pred2 <- prediction (lasso.pred , test.set$target)
+roc.perf2 <- performance(pred2, measure = "tpr", x.measure = "fpr")
+print(opt.cut(roc.perf2, pred2))
+```
+
+
+
+
+```{r}
+#best cut-off for logistic model with False negative = 10 times False positve
+cost.perf1 = performance(pred1, "cost", cost.fp = 1, cost.fn = 10)
+pred1@cutoffs[[1]][which.min(cost.perf1@y.values[[1]])]
+
+#best cut-off for lasso model with False negative = 10 times False positve
+cost.perf2 = performance(pred1, "cost", cost.fp = 1, cost.fn = 10)
+pred2@cutoffs[[1]][which.min(cost.perf2@y.values[[1]])]
+
+```
+
+
+```{r}
+#confusion matrix for the above best cut-off for each model
+table(Predicted = ifelse(logit.pred > pred1@cutoffs[[1]][which.min(cost.perf1@y.values[[1]])], "Yes", "No"), Actual = test.set$target)
+table(Predicted = ifelse(lasso.pred > pred2@cutoffs[[1]][which.min(cost.perf1@y.values[[1]])], "Yes", "No"), Actual = test.set$target)
+
+```
+
+
+
