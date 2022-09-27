@@ -1,5 +1,5 @@
 ---
-title: "Case study 3"
+title: "Project Part 3"
 author: "Sandy Vo"
 date: "8/7/2022"
 output: github_document
