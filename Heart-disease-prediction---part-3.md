@@ -125,7 +125,7 @@ lambda.min
 plot(cv.lasso)
 ```
 
-![](Code--final-report_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+![](Heart-disease-prediction---part-3_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 ``` r
 # run lasso with the best lambda
@@ -213,7 +213,7 @@ legend(0.4, 0.4, legend=c("Lasso", "Logistic"),
        col=c("red", "black"), lty=1, cex=0.8)
 ```
 
-![](Code--final-report_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+![](Heart-disease-prediction---part-3_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
 
 ``` r
 #find the best cut-off
